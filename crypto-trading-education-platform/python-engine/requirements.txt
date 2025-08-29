@@ -1,12 +1,11 @@
-pandas==2.1.4
-numpy==1.25.2
+pandas
+numpy
 requests==2.31.0
 ta==0.10.2
 matplotlib==3.8.2
 seaborn==0.13.0
 scipy==1.11.4
 scikit-learn==1.3.2
-pyparquet==1.3.1
 fastparquet==2023.10.1
 flask==3.0.0
 flask-cors==4.0.0
@@ -15,3 +14,5 @@ websockets==12.0
 plotly==5.17.0
 kaleido==0.2.1
 psutil==5.9.6
+celery
+redis
