@@ -31,11 +31,11 @@ router.post('/login', async (req, res) => {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 30); // Refresh token expires in 30 days
 
-    // In a real app, you would hash the refresh token
     await db.saveTokens(user.id, {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_on: expiryDate
+      accesstoken: accessToken,
+      refreshtoken: refreshToken,
+      idtoken: 'not_implemented', // Placeholder for B2C id_token
+      expireson: expiryDate.toISOString()
     });
 
     res.json({
