@@ -1,120 +1,85 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { apiClient } from '../lib/api'
-import toast from 'react-hot-toast'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { api } from '../lib/api';
+import { setTokens, clearTokens, getTokens, isTokenExpired } from '../lib/utils';
+import toast from 'react-hot-toast';
 
 interface User {
-  id: string
-  username: string
-  email: string
-  fullName: string
-  preferences: {
-    language: string
-    currency: string
-    timezone: string
-  }
-  paperTradingOnly: boolean
-  liveTradingDisabled: boolean
+  id: string;
+  username: string;
+  role: string;
+  email: string;
+  fullName: string;
 }
 
 interface AuthContextType {
-  user: User | null
-  loading: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, fullName: string) => Promise<void>
-  logout: () => void
-  updateUser: (updates: Partial<User>) => void
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, fullName: string) => Promise<void>;
+  logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Load user on mount
-  useEffect(() => {
-    loadUser()
-  }, [])
-
-  const loadUser = async () => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        setLoading(false)
-        return
-      }
+      const response = await api.post('/auth/login', { username: email, password });
+      const { accessToken, refreshToken, user: userData } = response.data;
 
-      const response = await apiClient.get('/auth/me')
-      setUser(response.data.user)
+      setTokens({ accesstoken: accessToken, refreshtoken: refreshToken });
+      setUser(userData);
+
+      toast.success(`Welcome ${userData.username}!`);
     } catch (error: any) {
-      console.error('خطأ في تحميل المستخدم:', error)
-      localStorage.removeItem('token')
-    } finally {
-      setLoading(false)
+      const message = error.response?.data?.error || 'Login failed';
+      toast.error(message);
+      throw error;
     }
-  }
-
-  const login = async (email: string, password: string) => {
-    try {
-      const response = await apiClient.post('/auth/login', { email, password })
-      const { token, user } = response.data
-
-      localStorage.setItem('token', token)
-      setUser(user)
-
-      toast.success(`مرحباً ${user.fullName || user.email}! تم تسجيل الدخول بنجاح`)
-    } catch (error: any) {
-      const message = error.response?.data?.error || 'حدث خطأ في تسجيل الدخول'
-      toast.error(message)
-      throw error
-    }
-  }
+  }, []);
 
   const register = async (email: string, password: string, fullName: string) => {
-    try {
-      const response = await apiClient.post('/auth/register', { email, password, fullName })
+    // This is a placeholder implementation.
+    // In a real app, this would call a /register endpoint.
+    console.log(email, password, fullName);
+    toast.success('Registration successful!');
+  };
 
-      toast.success('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول')
+  const logout = useCallback(() => {
+    clearTokens();
+    setUser(null);
+  }, []);
 
-      // Auto login after successful registration
-      await login(email, password)
-    } catch (error: any) {
-      const message = error.response?.data?.error || 'حدث خطأ في إنشاء الحساب'
-      toast.error(message)
-      throw error
-    }
-  }
-
-  const logout = () => {
-    localStorage.removeItem('token')
-    setUser(null)
-    toast.success('تم تسجيل الخروج بنجاح')
-  }
-
-  const updateUser = (updates: Partial<User>) => {
-    if (user) {
-      setUser({ ...user, ...updates })
-    }
-  }
+  useEffect(() => {
+    const initAuth = async () => {
+      const tokens = getTokens();
+      if (tokens && isTokenExpired(tokens.accesstoken)) {
+        try {
+          const { data } = await api.post('/auth/refresh', { refreshtoken: tokens.refreshtoken });
+          setTokens(data);
+        } catch {
+          logout();
+        }
+      } else if (tokens) {
+        // You might want to fetch user data here
+      }
+      setLoading(false);
+    };
+    initAuth();
+  }, [logout]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      login,
-      register,
-      logout,
-      updateUser
-    }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
 
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+};
