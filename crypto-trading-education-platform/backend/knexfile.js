@@ -1,30 +1,40 @@
 // knexfile.js
+require('dotenv').config({ path: '../../.env' });
+
 module.exports = {
   development: {
-    client: 'sqlite3',
+    client: 'pg',
     connection: {
-      filename: './data/app.db'
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'user',
+      password: process.env.DB_PASSWORD || 'pass',
+      database: process.env.DB_NAME || 'crypto_trading_db'
     },
-    useNullAsDefault: true,
     migrations: {
-      directory: './migrations'
+      directory: './migrations',
+      tableName: 'knex_migrations'
     },
-    pool: {
-      afterCreate: (conn, cb) => conn.run('PRAGMA foreign_keys = ON', cb)
+    seeds: {
+      directory: './seeds'
     }
   },
 
   production: {
-    client: 'sqlite3',
+    client: 'pg',
     connection: {
-      filename: './data/app.db'
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      ssl: { rejectUnauthorized: false }
     },
-    useNullAsDefault: true,
     migrations: {
-      directory: './migrations'
+      directory: './migrations',
+      tableName: 'knex_migrations'
     },
     pool: {
-      afterCreate: (conn, cb) => conn.run('PRAGMA foreign_keys = ON', cb)
+      min: 2,
+      max: 10
     }
   }
 };

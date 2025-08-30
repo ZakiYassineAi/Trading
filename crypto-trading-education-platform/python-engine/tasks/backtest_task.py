@@ -1,3 +1,7 @@
+import os
+import json
+import hashlib
+from redis import Redis
 from celery_app import celery
 from strategies.sma_strategy import SMAStrategy
 from strategies.ema_strategy import EMAStrategy
@@ -23,9 +27,39 @@ STRATEGIES = {
     'VOLATILITY_TARGETING': VolatilityTargetingStrategy
 }
 
+# Connect to Redis
+redis_host = os.getenv('REDIS_HOST', 'localhost')
+redis_port = int(os.getenv('REDIS_PORT', 6379))
+redis_client = Redis(host=redis_host, port=redis_port, db=0, decode_responses=True)
+
+# Cache expiration time in seconds (e.g., 24 hours)
+CACHE_EXPIRATION = 24 * 60 * 60
+
 @celery.task
 def run_backtest_task(strategy_config, symbol, timeframe, start_date, end_date, initial_capital):
-    """Celery task to run a backtest for a given strategy."""
+    """Celery task to run a backtest for a given strategy, with caching."""
+    # Create a stable cache key
+    params = {
+        'strategy': strategy_config,
+        'symbol': symbol,
+        'timeframe': timeframe,
+        'start': start_date,
+        'end': end_date,
+        'capital': initial_capital
+    }
+    params_str = json.dumps(params, sort_keys=True)
+    cache_key = f"backtest:{hashlib.md5(params_str.encode()).hexdigest()}"
+
+    # Try to get the result from cache
+    try:
+        cached_result = redis_client.get(cache_key)
+        if cached_result:
+            return json.loads(cached_result)
+    except Exception as e:
+        # If Redis fails, just log and continue without caching
+        print(f"Redis cache read failed: {e}")
+
+
     strategy_type = strategy_config['type']
     strategy_params = strategy_config['parameters']
 
@@ -82,5 +116,13 @@ def run_backtest_task(strategy_config, symbol, timeframe, start_date, end_date, 
             'parameters': strategy_params
         }
     }
+
+    # Store the result in cache
+    try:
+        # We need a custom JSON encoder for pandas Timestamps if they exist
+        result_str = json.dumps(final_results, default=str)
+        redis_client.set(cache_key, result_str, ex=CACHE_EXPIRATION)
+    except Exception as e:
+        print(f"Redis cache write failed: {e}")
 
     return final_results

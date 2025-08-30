@@ -1,9 +1,11 @@
 import React from 'react'
 import { Card } from '../components/ui/card'
+import RiskWarning from '@/components/ui/RiskWarning'
 
 export function Dashboard() {
   return (
     <div className="space-y-6">
+      <RiskWarning />
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-white">لوحة التداول الاحترافية</h1>
         <div className="flex items-center space-x-4">

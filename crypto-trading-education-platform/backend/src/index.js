@@ -6,7 +6,10 @@ import { dirname, join } from 'path';
 import { initializeDatabase } from './models/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { securityMiddleware } from './middleware/security.js';
+import logger from './config/logger.js';
 import { auditLogger } from './middleware/auditLogger.js';
+import { authenticateToken } from './middleware/authMiddleware.js';
+import { apiLimiter, authLimiter } from './middleware/rateLimiter.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -16,6 +19,8 @@ import portfolioRoutes from './routes/portfolio.js';
 import dataRoutes from './routes/data.js';
 import alertsRoutes from './routes/alerts.js';
 import defiRoutes from './routes/defi.js';
+import swaggerUi from 'swagger-ui-express';
+import YAML from 'yamljs';
 
 // Configure __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -29,11 +34,11 @@ const PORT = process.env.PORT || 3001;
 
 // Critical Security Check - منع التداول الحقيقي
 if (process.env.ENABLE_LIVE_TRADING === 'true') {
-  console.error('❌ خطأ أمني: ENABLE_LIVE_TRADING يجب أن يكون false دائماً');
+  logger.error('❌ CRITICAL SECURITY ALERT: ENABLE_LIVE_TRADING is set to true!');
   process.exit(1);
 }
 
-console.log('🔒 نظام الأمان: Paper Trading فقط - التداول الحقيقي معطل');
+logger.info('🔒 Security System: Paper Trading Only - Live trading is disabled.');
 
 // Middleware
 app.use(cors({
@@ -50,6 +55,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(securityMiddleware);
 app.use(auditLogger);
 
+// Setup Swagger
+const swaggerDocument = YAML.load('./openapi.yaml');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
 // Static files
 app.use('/data', express.static(join(__dirname, '../../public/data')));
 app.use('/charts', express.static(join(__dirname, '../../public/charts')));
@@ -65,14 +74,17 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/strategies', strategiesRoutes);
-app.use('/api/backtest', backtestRoutes);
-app.use('/api/portfolio', portfolioRoutes);
-app.use('/api/data', dataRoutes);
-app.use('/api/alerts', alertsRoutes);
-app.use('/api/defi', defiRoutes);
+// Apply rate limiting
+app.use('/api/', apiLimiter);
+app.use('/api/auth', authLimiter, authRoutes);
+
+// API Routes that require authentication
+app.use('/api/strategies', authenticateToken, strategiesRoutes);
+app.use('/api/backtest', authenticateToken, backtestRoutes);
+app.use('/api/portfolio', authenticateToken, portfolioRoutes);
+app.use('/api/data', authenticateToken, dataRoutes);
+app.use('/api/alerts', authenticateToken, alertsRoutes);
+app.use('/api/defi', authenticateToken, defiRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -81,16 +93,16 @@ app.use(errorHandler);
 async function startServer() {
   try {
     await initializeDatabase();
-    console.log('✅ تم تهيئة قاعدة البيانات بنجاح');
+    logger.info('✅ Database initialized successfully.');
 
     app.listen(PORT, () => {
-      console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`);
-      console.log(`📊 لوحة التحكم: http://localhost:5173`);
-      console.log(`🔧 API متاح على: http://localhost:${PORT}`);
-      console.log('🛡️  وضع Paper Trading فقط - آمن تماماً');
+      logger.info(`🚀 Server running on port ${PORT}`);
+      logger.info(`📊 Dashboard available at: http://localhost:5173`);
+      logger.info(`🔧 API available at: http://localhost:${PORT}`);
+      logger.info('🛡️  Paper Trading Mode Only - System is secure.');
     });
   } catch (error) {
-    console.error('❌ خطأ في بدء الخادم:', error);
+    logger.error(`❌ Failed to start server: ${error.message}`);
     process.exit(1);
   }
 }
