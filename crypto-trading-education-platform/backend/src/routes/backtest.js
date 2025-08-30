@@ -1,31 +1,25 @@
 import express from 'express';
-import { db } from '../models/database.js';
+import { knex } from '../models/database.js';
 import { authenticateToken } from './auth.js';
 import axios from 'axios';
 
 const router = express.Router();
 
-// تشغيل باك-تست
+// Run a backtest
 router.post('/run', authenticateToken, async (req, res) => {
   try {
     const { strategyId, symbol, timeframe, startDate, endDate, initialCapital = 10000 } = req.body;
 
     if (!strategyId || !symbol || !timeframe || !startDate || !endDate) {
-      return res.status(400).json({
-        error: 'يجب إدخال جميع البيانات المطلوبة'
-      });
+      return res.status(400).json({ error: 'All required fields must be provided.' });
     }
 
-    // الحصول على الاستراتيجية
-    const strategy = await db.get(`
-      SELECT * FROM trading_strategies WHERE id = ?
-    `, [strategyId]);
+    const strategy = await knex('trading_strategies').where({ id: strategyId }).first();
 
     if (!strategy) {
-      return res.status(404).json({ error: 'الاستراتيجية غير موجودة' });
+      return res.status(404).json({ error: 'Strategy not found.' });
     }
 
-    // استدعاء Python engine لتشغيل الباك-تست
     const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://localhost:5000';
 
     const backtestData = {
@@ -41,58 +35,45 @@ router.post('/run', authenticateToken, async (req, res) => {
     };
 
     try {
-      // محاولة استدعاء Python engine
       const response = await axios.post(`${pythonEngineUrl}/backtest/run`, backtestData, {
         timeout: 30000 // 30 seconds timeout
       });
 
       const results = response.data;
-
-      // حفظ نتائج الباك-تست في قاعدة البيانات
       await saveBacktestResults(req.user.userId, strategyId, symbol, timeframe, startDate, endDate, initialCapital, results);
-
-      res.json({
-        message: 'تم تشغيل الباك-تست بنجاح',
-        results
-      });
+      res.json({ message: 'Backtest executed successfully.', results });
 
     } catch (engineError) {
       console.error('Python engine error:', engineError.message);
-
-      // في حالة عدم توفر Python engine، إرجاع نتائج محاكاة للعرض
       const mockResults = generateMockBacktestResults(symbol, timeframe, startDate, endDate, initialCapital, strategy);
-
       await saveBacktestResults(req.user.userId, strategyId, symbol, timeframe, startDate, endDate, initialCapital, mockResults);
-
       res.json({
-        message: 'تم تشغيل الباك-تست (وضع المحاكاة)',
+        message: 'Backtest executed (simulation mode).',
         results: mockResults,
-        note: 'Python engine غير متوفر - تم عرض نتائج محاكاة'
+        note: 'Python engine was unavailable - showing simulated results.'
       });
     }
   } catch (error) {
-    throw error;
+    res.status(500).json({ error: 'Failed to run backtest.' });
   }
 });
 
-// الحصول على نتائج الباك-تست
+// Get backtest results
 router.get('/results', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
 
-    const results = await db.all(`
-      SELECT br.*, ts.name as strategy_name, ts.type as strategy_type
-      FROM backtest_results br
-      LEFT JOIN trading_strategies ts ON br.strategy_id = ts.id
-      WHERE br.user_id = ?
-      ORDER BY br.created_at DESC
-      LIMIT ? OFFSET ?
-    `, [req.user.userId, limit, offset]);
+    const results = await knex('backtest_results as br')
+      .leftJoin('trading_strategies as ts', 'br.strategy_id', 'ts.id')
+      .where('br.user_id', req.user.userId)
+      .select('br.*', 'ts.name as strategy_name', 'ts.type as strategy_type')
+      .orderBy('br.created_at', 'desc')
+      .limit(limit)
+      .offset(offset);
 
-    const totalCount = await db.get(`
-      SELECT COUNT(*) as count FROM backtest_results WHERE user_id = ?
-    `, [req.user.userId]);
+    const totalCountResult = await knex('backtest_results').where({ user_id: req.user.userId }).count({ count: '*' }).first();
+    const totalCount = totalCountResult.count;
 
     const formattedResults = results.map(result => ({
       ...result,
@@ -105,69 +86,71 @@ router.get('/results', authenticateToken, async (req, res) => {
       results: formattedResults,
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(totalCount.count / limit),
-        totalCount: totalCount.count,
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount: parseInt(totalCount),
         limit: parseInt(limit)
       }
     });
   } catch (error) {
-    throw error;
+    res.status(500).json({ error: 'Failed to fetch backtest results.' });
   }
 });
 
-// حذف نتائج باك-تست
+// Delete backtest result
 router.delete('/results/:id', authenticateToken, async (req, res) => {
   try {
     const resultId = req.params.id;
-
-    const result = await db.get(`
-      SELECT * FROM backtest_results WHERE id = ? AND user_id = ?
-    `, [resultId, req.user.userId]);
+    const result = await knex('backtest_results')
+      .where({ id: resultId, user_id: req.user.userId })
+      .first();
 
     if (!result) {
-      return res.status(404).json({ error: 'النتيجة غير موجودة' });
+      return res.status(404).json({ error: 'Result not found.' });
     }
 
-    await db.run(`DELETE FROM backtest_results WHERE id = ?`, [resultId]);
-
-    res.json({ message: 'تم حذف نتيجة الباك-تست بنجاح' });
+    await knex('backtest_results').where({ id: resultId }).del();
+    res.json({ message: 'Backtest result deleted successfully.' });
   } catch (error) {
-    throw error;
+    res.status(500).json({ error: 'Failed to delete backtest result.' });
   }
 });
 
-// حفظ نتائج الباك-تست
+// Helper to save backtest results
 async function saveBacktestResults(userId, strategyId, symbol, timeframe, startDate, endDate, initialCapital, results) {
-  await db.run(`
-    INSERT INTO backtest_results (
-      user_id, strategy_id, symbol, timeframe, start_date, end_date,
-      initial_capital, final_capital, total_return, cagr, sharpe_ratio,
-      sortino_ratio, max_drawdown, calmar_ratio, hit_rate, total_trades,
-      winning_trades, losing_trades, metrics, equity_curve, trade_log
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    userId, strategyId, symbol, timeframe, startDate, endDate,
-    initialCapital, results.final_value, results.total_return, results.cagr,
-    results.sharpe_ratio, results.sortino_ratio, results.max_drawdown,
-    results.calmar_ratio, results.hit_rate, results.total_trades,
-    results.winning_trades, results.losing_trades,
-    JSON.stringify(results.metrics || {}),
-    JSON.stringify(results.equity_curve || []),
-    JSON.stringify(results.trades || [])
-  ]);
+  await knex('backtest_results').insert({
+    user_id: userId,
+    strategy_id: strategyId,
+    symbol,
+    timeframe,
+    start_date: startDate,
+    end_date: endDate,
+    initial_capital: initialCapital,
+    final_capital: results.final_value,
+    total_return: results.total_return,
+    cagr: results.cagr,
+    sharpe_ratio: results.sharpe_ratio,
+    sortino_ratio: results.sortino_ratio,
+    max_drawdown: results.max_drawdown,
+    calmar_ratio: results.calmar_ratio,
+    hit_rate: results.hit_rate,
+    total_trades: results.total_trades,
+    winning_trades: results.winning_trades,
+    losing_trades: results.losing_trades,
+    metrics: JSON.stringify(results.metrics || {}),
+    equity_curve: JSON.stringify(results.equity_curve || []),
+    trade_log: JSON.stringify(results.trades || [])
+  });
 }
 
-// توليد نتائج محاكاة للباك-تست
+// Generate mock backtest results
 function generateMockBacktestResults(symbol, timeframe, startDate, endDate, initialCapital, strategy) {
-  // توليد قيم عشوائية واقعية للعرض
-  const baseReturn = 0.15 + (Math.random() - 0.5) * 0.3; // عائد من -15% إلى +30%
+  const baseReturn = 0.15 + (Math.random() - 0.5) * 0.3;
   const finalValue = initialCapital * (1 + baseReturn);
   const totalTrades = Math.floor(Math.random() * 50) + 10;
-  const winRate = 0.4 + Math.random() * 0.3; // معدل نجاح 40-70%
+  const winRate = 0.4 + Math.random() * 0.3;
   const winningTrades = Math.floor(totalTrades * winRate);
   const losingTrades = totalTrades - winningTrades;
 
-  // توليد equity curve
   const equityCurve = [];
   let currentValue = initialCapital;
   const days = 100;
@@ -176,9 +159,8 @@ function generateMockBacktestResults(symbol, timeframe, startDate, endDate, init
     const date = new Date(startDate);
     date.setDate(date.getDate() + i);
 
-    // محاكاة تقلبات واقعية
     if (i > 0) {
-      const dailyChange = (Math.random() - 0.5) * 0.05; // تغيير يومي حتى ±2.5%
+      const dailyChange = (Math.random() - 0.5) * 0.05;
       currentValue *= (1 + dailyChange);
     }
 
@@ -188,13 +170,12 @@ function generateMockBacktestResults(symbol, timeframe, startDate, endDate, init
     });
   }
 
-  // ضبط القيمة النهائية
   equityCurve[equityCurve.length - 1].value = Math.round(finalValue * 100) / 100;
 
   return {
     initial_value: initialCapital,
     final_value: Math.round(finalValue * 100) / 100,
-    total_return: Math.round(baseReturn * 10000) / 100, // نسبة مئوية
+    total_return: Math.round(baseReturn * 10000) / 100,
     cagr: Math.round(baseReturn * 100 * 100) / 100,
     sharpe_ratio: Math.round((0.5 + Math.random() * 1.5) * 100) / 100,
     sortino_ratio: Math.round((0.6 + Math.random() * 1.8) * 100) / 100,
@@ -215,7 +196,7 @@ function generateMockBacktestResults(symbol, timeframe, startDate, endDate, init
   };
 }
 
-// توليد صفقات وهمية
+// Generate mock trades
 function generateMockTrades(totalTrades, winningTrades, symbol) {
   const trades = [];
   const startDate = new Date();

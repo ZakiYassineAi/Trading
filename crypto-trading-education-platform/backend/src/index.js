@@ -1,12 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { initializeDatabase } from './models/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { securityMiddleware } from './middleware/security.js';
 import { auditLogger } from './middleware/auditLogger.js';
+import './engine/queue.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -17,9 +15,6 @@ import dataRoutes from './routes/data.js';
 import alertsRoutes from './routes/alerts.js';
 import defiRoutes from './routes/defi.js';
 
-// Configure __dirname for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -51,8 +46,8 @@ app.use(securityMiddleware);
 app.use(auditLogger);
 
 // Static files
-app.use('/data', express.static(join(__dirname, '../../public/data')));
-app.use('/charts', express.static(join(__dirname, '../../public/charts')));
+// app.use('/data', express.static(join(__dirname, '../../public/data')));
+// app.use('/charts', express.static(join(__dirname, '../../public/charts')));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -77,20 +72,25 @@ app.use('/api/defi', defiRoutes);
 // Error handling
 app.use(errorHandler);
 
+import http from 'http';
+import { initSocket } from './engine/websockets/socketServer.js';
+
+// ... (rest of the file remains the same until startServer)
+
 // Initialize database and start server
 async function startServer() {
   try {
-    await initializeDatabase();
-    console.log('✅ تم تهيئة قاعدة البيانات بنجاح');
+    const httpServer = http.createServer(app);
+    initSocket(httpServer);
 
-    app.listen(PORT, () => {
-      console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`);
-      console.log(`📊 لوحة التحكم: http://localhost:5173`);
-      console.log(`🔧 API متاح على: http://localhost:${PORT}`);
-      console.log('🛡️  وضع Paper Trading فقط - آمن تماماً');
+    httpServer.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📊 Dashboard: http://localhost:5173`);
+      console.log(`🔧 API available at: http://localhost:${PORT}`);
+      console.log('🛡️  Paper Trading Mode Only - Completely Safe');
     });
   } catch (error) {
-    console.error('❌ خطأ في بدء الخادم:', error);
+    console.error('❌ Error starting server:', error);
     process.exit(1);
   }
 }

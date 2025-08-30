@@ -1,16 +1,16 @@
 import express from 'express';
 import axios from 'axios';
-import { db } from '../models/database.js';
+import { knex } from '../models/database.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
 
-// الحصول على بيانات العملات الرقميع الحالية
+// Get current cryptocurrency data
 router.get('/crypto/current', async (req, res) => {
   try {
     const { symbols = 'bitcoin,ethereum,cardano,polygon,chainlink,solana,avalanche-2,polkadot' } = req.query;
 
-    // محاولة جلب بيانات حقيقية من CoinGecko
+    // Attempt to fetch live data from CoinGecko
     try {
       const coingeckoResponse = await axios.get(
         `https://api.coingecko.com/api/v3/simple/price?ids=${symbols}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`,
@@ -26,17 +26,21 @@ router.get('/crypto/current', async (req, res) => {
           price_change_24h: data.usd_24h_change || 0,
           volume_24h: data.usd_24h_vol || 0,
           market_cap: data.usd_market_cap || 0,
-          last_updated: new Date().toISOString()
         };
       });
 
-      // حفظ البيانات في قاعدة البيانات
+      // Save the data to the database (upsert)
       for (const crypto of formattedData) {
-        await db.run(`
-          INSERT OR REPLACE INTO crypto_data (
-            symbol, price, volume_24h, market_cap, price_change_24h, timestamp
-          ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `, [crypto.symbol, crypto.price, crypto.volume_24h, crypto.market_cap, crypto.price_change_24h]);
+        await knex('crypto_data')
+          .insert({
+            symbol: crypto.symbol,
+            price: crypto.price,
+            volume_24h: crypto.volume_24h,
+            market_cap: crypto.market_cap,
+            price_change_24h: crypto.price_change_24h,
+          })
+          .onConflict('symbol')
+          .merge();
       }
 
       res.json({ data: formattedData, source: 'coingecko' });
@@ -44,22 +48,23 @@ router.get('/crypto/current', async (req, res) => {
     } catch (apiError) {
       console.error('CoinGecko API error:', apiError.message);
 
-      // في حالة فشل API، إرجاع بيانات محاكاة
+      // In case of API failure, return mock data
       const mockData = generateMockCryptoData();
-      res.json({ data: mockData, source: 'mock', note: 'CoinGecko API غير متوفر' });
+      res.json({ data: mockData, source: 'mock', note: 'CoinGecko API is unavailable' });
     }
   } catch (error) {
-    throw error;
+    console.error('Error fetching crypto data:', error);
+    res.status(500).json({ error: 'Failed to fetch crypto data.' });
   }
 });
 
-// الحصول على بيانات تاريخية لعملة معينة
+// Get historical data for a specific cryptocurrency
 router.get('/crypto/history/:symbol', async (req, res) => {
   try {
     const { symbol } = req.params;
     const { timeframe = '1d', limit = 100 } = req.query;
 
-    // محاولة جلب بيانات تاريخية من CoinGecko
+    // Attempt to fetch historical data from CoinGecko
     try {
       const days = timeframe === '1h' ? 1 : timeframe === '1d' ? 90 : 365;
       const coingeckoResponse = await axios.get(
@@ -87,28 +92,29 @@ router.get('/crypto/history/:symbol', async (req, res) => {
     } catch (apiError) {
       console.error('CoinGecko history API error:', apiError.message);
 
-      // بيانات محاكاة تاريخية
+      // Historical mock data
       const mockData = generateMockHistoricalData(symbol.toUpperCase(), timeframe, parseInt(limit));
       res.json({
         data: mockData,
         symbol: symbol.toUpperCase(),
         timeframe,
         source: 'mock',
-        note: 'CoinGecko API غير متوفر'
+        note: 'CoinGecko API is unavailable'
       });
     }
   } catch (error) {
-    throw error;
+    console.error('Error fetching historical data:', error);
+    res.status(500).json({ error: 'Failed to fetch historical data.' });
   }
 });
 
-// الحصول على بيانات OHLC
+// Get OHLC data
 router.get('/crypto/ohlc/:symbol', async (req, res) => {
   try {
     const { symbol } = req.params;
     const { timeframe = '1d', limit = 100 } = req.query;
 
-    // بيانات OHLC محاكاة (في البيئة الحقيقية ستحتاج لAPI مدفوع)
+    // Mock OHLC data (in a real environment, you would need a paid API)
     const ohlcData = generateMockOHLCData(symbol.toUpperCase(), timeframe, parseInt(limit));
 
     res.json({
@@ -118,11 +124,12 @@ router.get('/crypto/ohlc/:symbol', async (req, res) => {
       source: 'mock'
     });
   } catch (error) {
-    throw error;
+    console.error('Error fetching OHLC data:', error);
+    res.status(500).json({ error: 'Failed to fetch OHLC data.' });
   }
 });
 
-// الحصول على قائمة أهم العملات
+// Get top trending coins
 router.get('/crypto/trending', async (req, res) => {
   try {
     try {
@@ -155,11 +162,12 @@ router.get('/crypto/trending', async (req, res) => {
       res.json({ data: mockTrending, source: 'mock' });
     }
   } catch (error) {
-    throw error;
+    console.error('Error fetching trending coins:', error);
+    res.status(500).json({ error: 'Failed to fetch trending coins.' });
   }
 });
 
-// توليد بيانات محاكاة للعملات
+// Generate mock crypto data
 function generateMockCryptoData() {
   const cryptos = [
     { symbol: 'BTC', name: 'Bitcoin', basePrice: 45000 },
@@ -189,7 +197,7 @@ function generateMockCryptoData() {
   });
 }
 
-// توليد بيانات تاريخية محاكاة
+// Generate mock historical data
 function generateMockHistoricalData(symbol, timeframe, limit) {
   const data = [];
   const basePrice = symbol === 'BTC' ? 45000 : symbol === 'ETH' ? 3200 : 100;
@@ -213,7 +221,7 @@ function generateMockHistoricalData(symbol, timeframe, limit) {
   return data;
 }
 
-// توليد بيانات OHLC محاكاة
+// Generate mock OHLC data
 function generateMockOHLCData(symbol, timeframe, limit) {
   const data = [];
   const basePrice = symbol === 'BTC' ? 45000 : symbol === 'ETH' ? 3200 : 100;
@@ -248,7 +256,7 @@ function generateMockOHLCData(symbol, timeframe, limit) {
   return data;
 }
 
-// بيانات محلية للباك-تست
+// Local data for backtesting
 router.get('/backtest/:symbol', authenticateToken, async (req, res) => {
   try {
     const { symbol } = req.params;
@@ -256,15 +264,12 @@ router.get('/backtest/:symbol', authenticateToken, async (req, res) => {
 
     if (!startDate || !endDate) {
       return res.status(400).json({
-        error: 'يجب إدخال تاريخ البداية والنهاية'
+        error: 'Start and end date are required.'
       });
     }
 
-    // حساب عدد الأيام بين التاريخين
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-
+    // This is a placeholder for fetching historical data from a local source
+    const daysDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24));
     const historicalData = generateMockHistoricalData(symbol.toUpperCase(), timeframe, daysDiff);
 
     res.json({
@@ -278,7 +283,8 @@ router.get('/backtest/:symbol', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    throw error;
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch backtest data.' });
   }
 });
 

@@ -1,9 +1,9 @@
-import { db } from '../models/database.js';
+import { knex } from '../models/database.js';
 
 // Audit logger middleware
 export function auditLogger(req, res, next) {
-  // تجاهل الطلبات البسيطة
-  if (req.path.includes('/health') || req.method === 'GET' && req.path.includes('/data')) {
+  // Ignore simple requests
+  if (req.path.includes('/health') || (req.method === 'GET' && req.path.includes('/data'))) {
     return next();
   }
 
@@ -19,14 +19,11 @@ export function auditLogger(req, res, next) {
     })
   };
 
-  // حفظ السجل في قاعدة البيانات
-  db.run(`
-    INSERT INTO audit_logs (action, resource_type, ip_address, user_agent, details, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `, [logData.action, logData.resource_type, logData.ip_address, logData.user_agent, logData.details, logData.timestamp])
-  .catch(error => {
-    console.error('خطأ في حفظ سجل التدقيق:', error);
-  });
+  // Save the log to the database
+  knex('audit_logs').insert(logData)
+    .catch(error => {
+      console.error('Error saving audit log:', error);
+    });
 
   next();
 }

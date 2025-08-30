@@ -1,10 +1,32 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db } from '../models/database.js';
+import { knex, saveTokens, getUsers } from '../models/database.js';
 import crypto from 'crypto';
 
 const router = express.Router();
+
+// Register a new user
+router.post('/register', async (req, res, next) => {
+  try {
+    const { username, email, password } = req.body;
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email, and password are required' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const [newUser] = await knex('users').insert({
+      username,
+      email,
+      password_hash: hashedPassword,
+      role: 'user' // Default role
+    }).returning('*');
+
+    res.status(201).json({ message: 'User registered successfully.', userId: newUser.id });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Helper function to generate tokens
 const generateTokens = (user) => {
@@ -21,7 +43,7 @@ const generateTokens = (user) => {
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await db.knex('users').where({ username }).orWhere({ email: username }).first();
+    const user = await knex('users').where({ username }).orWhere({ email: username }).first();
 
     if (!user || !await bcrypt.compare(password, user.password_hash)) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -31,7 +53,7 @@ router.post('/login', async (req, res) => {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 30);
 
-    await db.saveTokens(user.id, {
+    await saveTokens(user.id, {
       accesstoken: accessToken,
       refreshtoken: refreshToken,
       idtoken: 'not_implemented',
@@ -60,7 +82,7 @@ router.post('/refresh', async (req, res) => {
   // In a real app, you would have a separate table for refresh tokens
   // and you would validate them more securely.
   // This is a simplified implementation.
-  const users = await db.getUsers();
+  const users = await getUsers();
   const userRecord = users.find(u => {
     const tokens = u.tokens ? JSON.parse(u.tokens) : {};
     return tokens.refreshtoken === refreshToken;
@@ -83,7 +105,7 @@ router.post('/logout', async (req, res) => {
 
 
 // Middleware to authenticate token
-const authenticateToken = (req, res, next) => {
+export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 

@@ -1,5 +1,3 @@
-import { db } from '../models/database.js';
-
 // Security middleware - منع التداول الحقيقي
 export function securityMiddleware(req, res, next) {
   // إضافة headers أمنية

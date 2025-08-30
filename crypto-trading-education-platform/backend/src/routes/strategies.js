@@ -1,17 +1,16 @@
 import express from 'express';
-import { db } from '../models/database.js';
+import { knex } from '../models/database.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
 
-// الحصول على جميع الاستراتيجيات
+// Get all strategies
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const strategies = await db.all(`
-      SELECT * FROM trading_strategies
-      WHERE user_id = ? OR user_id IS NULL
-      ORDER BY created_at DESC
-    `, [req.user.userId]);
+    const strategies = await knex('trading_strategies')
+      .where('user_id', req.user.userId)
+      .orWhereNull('user_id')
+      .orderBy('created_at', 'desc');
 
     const formattedStrategies = strategies.map(strategy => ({
       ...strategy,
@@ -24,36 +23,37 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// إنشاء استراتيجية جديدة
+// Create a new strategy
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { name, type, parameters, description } = req.body;
 
     if (!name || !type || !parameters) {
       return res.status(400).json({
-        error: 'يجب إدخال اسم ونوع ومعاملات الاستراتيجية'
+        error: 'Name, type, and parameters are required for the strategy.'
       });
     }
 
-    // التحقق من أن نوع الاستراتيجية معتمد
+    // Validate strategy type
     const validTypes = ['SMA', 'EMA', 'RSI', 'MACD', 'BREAKOUT', 'ATR', 'MEAN_REVERSION', 'VOLATILITY_TARGETING'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({
-        error: 'نوع الاستراتيجية غير معتمد'
+        error: 'Unsupported strategy type.'
       });
     }
 
-    const result = await db.run(`
-      INSERT INTO trading_strategies (user_id, name, type, parameters, description)
-      VALUES (?, ?, ?, ?, ?)
-    `, [req.user.userId, name, type, JSON.stringify(parameters), description]);
+    const [newStrategyId] = await knex('trading_strategies').insert({
+      user_id: req.user.userId,
+      name,
+      type,
+      parameters: JSON.stringify(parameters),
+      description
+    }).returning('id');
 
-    const strategy = await db.get(`
-      SELECT * FROM trading_strategies WHERE id = ?
-    `, [result.lastID]);
+    const strategy = await knex('trading_strategies').where({ id: newStrategyId }).first();
 
     res.status(201).json({
-      message: 'تم إنشاء الاستراتيجية بنجاح',
+      message: 'Strategy created successfully.',
       strategy: {
         ...strategy,
         parameters: JSON.parse(strategy.parameters)
@@ -64,39 +64,37 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// تحديث استراتيجية
+// Update a strategy
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { name, parameters, description, isActive } = req.body;
     const strategyId = req.params.id;
 
-    // التحقق من ملكية الاستراتيجية
-    const strategy = await db.get(`
-      SELECT * FROM trading_strategies WHERE id = ? AND user_id = ?
-    `, [strategyId, req.user.userId]);
+    // Verify ownership
+    const strategy = await knex('trading_strategies')
+      .where({ id: strategyId, user_id: req.user.userId })
+      .first();
 
     if (!strategy) {
       return res.status(404).json({
-        error: 'الاستراتيجية غير موجودة أو لا تملك صلاحية الوصول'
+        error: 'Strategy not found or you do not have access.'
       });
     }
 
-    await db.run(`
-      UPDATE trading_strategies
-      SET name = ?, parameters = ?, description = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `, [name || strategy.name,
-        JSON.stringify(parameters || JSON.parse(strategy.parameters)),
-        description || strategy.description,
-        isActive !== undefined ? isActive : strategy.is_active,
-        strategyId]);
+    await knex('trading_strategies')
+      .where({ id: strategyId })
+      .update({
+        name: name || strategy.name,
+        parameters: JSON.stringify(parameters || JSON.parse(strategy.parameters)),
+        description: description || strategy.description,
+        is_active: isActive !== undefined ? isActive : strategy.is_active,
+        updated_at: knex.fn.now()
+      });
 
-    const updatedStrategy = await db.get(`
-      SELECT * FROM trading_strategies WHERE id = ?
-    `, [strategyId]);
+    const updatedStrategy = await knex('trading_strategies').where({ id: strategyId }).first();
 
     res.json({
-      message: 'تم تحديث الاستراتيجية بنجاح',
+      message: 'Strategy updated successfully.',
       strategy: {
         ...updatedStrategy,
         parameters: JSON.parse(updatedStrategy.parameters)
@@ -107,25 +105,25 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// حذف استراتيجية
+// Delete a strategy
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const strategyId = req.params.id;
 
-    // التحقق من ملكية الاستراتيجية
-    const strategy = await db.get(`
-      SELECT * FROM trading_strategies WHERE id = ? AND user_id = ?
-    `, [strategyId, req.user.userId]);
+    // Verify ownership
+    const strategy = await knex('trading_strategies')
+      .where({ id: strategyId, user_id: req.user.userId })
+      .first();
 
     if (!strategy) {
       return res.status(404).json({
-        error: 'الاستراتيجية غير موجودة أو لا تملك صلاحية الوصول'
+        error: 'Strategy not found or you do not have access.'
       });
     }
 
-    await db.run(`DELETE FROM trading_strategies WHERE id = ?`, [strategyId]);
+    await knex('trading_strategies').where({ id: strategyId }).del();
 
-    res.json({ message: 'تم حذف الاستراتيجية بنجاح' });
+    res.json({ message: 'Strategy deleted successfully.' });
   } catch (error) {
     throw error;
   }

@@ -17,11 +17,8 @@ export function errorHandler(error, req, res, next) {
   };
 
   // حفظ السجل دون إيقاف العملية
-  import('../models/database.js').then(({ db }) => {
-    db.run(`
-      INSERT INTO audit_logs (action, resource_type, details, severity, timestamp)
-      VALUES (?, ?, ?, ?, ?)
-    `, [errorLog.action, errorLog.resource_type, errorLog.details, errorLog.severity, errorLog.timestamp])
+  import('../models/database.js').then(({ knex }) => {
+    knex('audit_logs').insert(errorLog)
     .catch(dbError => {
       console.error('خطأ في حفظ سجل الخطأ:', dbError);
     });
