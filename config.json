@@ -1,0 +1,77 @@
+{
+  "system": {
+    "version": "3.0.0-SUPREME",
+    "name": "Ultimate Stealth Airdrop Collector",
+    "description": "Revolutionary AI-powered airdrop intelligence system",
+    "author": "Advanced AI Development Team",
+    "license": "Educational & Research Use Only"
+  },
+  "target": {
+    "wallet_address": "0x958BD67f2f6be2Dc46D0e9e0Dd6d33F52EfCA67C",
+    "networks": ["Ethereum", "Polygon", "BSC", "Arbitrum", "Optimism", "Solana", "Cardano"]
+  },
+  "security": {
+    "encryption_iterations": 500000,
+    "vault_version": 4,
+    "secure_random_bytes": 32,
+    "min_similarity_threshold": 0.85,
+    "ml_confidence_threshold": 0.70
+  },
+  "scraping": {
+    "max_retries": 5,
+    "request_timeout": 30,
+    "rate_limit_delay": [2.0, 6.0],
+    "user_agent_rotation": true,
+    "max_concurrent_requests": 8
+  },
+  "intelligence": {
+    "duplicate_detection_days": 30,
+    "batch_size": 50,
+    "cache_expiry_hours": 6,
+    "database_vacuum_interval": 100,
+    "min_content_length": 8,
+    "max_content_length": 500
+  },
+  "notifications": {
+    "enabled_channels": ["telegram", "discord", "github"],
+    "notification_limits": {
+      "telegram_max_length": 4000,
+      "discord_embed_limit": 2000,
+      "github_body_limit": 65536
+    }
+  },
+  "sources": {
+    "premium_sources": [
+      "CoinGecko_Airdrops",
+      "DappRadar_Hub",
+      "AirdropAlert_Community"
+    ],
+    "update_interval_hours": 6,
+    "source_reliability_threshold": 0.5,
+    "max_items_per_source": 50
+  },
+  "ml_analysis": {
+    "categories": {
+      "defi": {"weight": 1.2, "risk_modifier": -0.1},
+      "gamefi": {"weight": 1.1, "risk_modifier": 0.0},
+      "layer1": {"weight": 1.3, "risk_modifier": -0.2},
+      "layer2": {"weight": 1.2, "risk_modifier": -0.1},
+      "infrastructure": {"weight": 1.1, "risk_modifier": -0.1},
+      "ai": {"weight": 1.2, "risk_modifier": -0.05},
+      "meme": {"weight": 0.7, "risk_modifier": 0.3}
+    },
+    "priority_weights": {
+      "legitimacy": 0.35,
+      "risk": 0.25,
+      "sentiment": 0.15,
+      "value": 0.15,
+      "source": 0.10
+    }
+  },
+  "reports": {
+    "formats": ["json", "csv", "html", "txt"],
+    "auto_cleanup_days": 90,
+    "max_report_size_mb": 50,
+    "include_analytics": true
+  }
+}
