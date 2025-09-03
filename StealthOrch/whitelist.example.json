@@ -1,0 +1,7 @@
+{
+  "allowed_contracts": {
+    "0xAbCdEf...": { "project": "ExampleProject", "auto": true, "max_value_eth": 0.05 },
+    "0x123456...": { "project": "OtherProject", "auto": false, "max_value_eth": 0.01 }
+  },
+  "allowed_safe_addresses": ["0xYourSafeAddressHere"]
+}
