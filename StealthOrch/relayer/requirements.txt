@@ -1,0 +1,9 @@
+# Core Web Framework
+fastapi
+uvicorn
+
+# Web3 / Blockchain
+web3
+
+# Configuration
+python-dotenv

@@ -525,12 +525,6 @@ class QuantumVault:
         if not vault_data:
             logger.info("🔧 No vault found - operating without API keys")
             return {}
-
-        # Check if running in a non-interactive session
-        if not sys.stdout.isatty():
-            logger.warning("⚠️ Non-interactive session detected. Cannot prompt for passphrase.")
-            logger.info("🔧 Continuing without API keys - notifications will be disabled.")
-            return {}
         
         try:
             passphrase = getpass.getpass("🔓 Enter vault passphrase: ")
@@ -1900,14 +1894,12 @@ class QuantumIntelligenceDatabase:
         cursor = conn.cursor()
         
         # Archive old low-priority entries
-        # Using an f-string is safe here because `days` is an integer.
-        query = f"""
+        cursor.execute("""
             DELETE FROM airdrops 
-            WHERE created_at < datetime('now', '-{days} days')
+            WHERE created_at < datetime('now', '-? days')
             AND priority_score < 3
             AND status != 'starred'
-        """
-        cursor.execute(query)
+        """, (days,))
         
         deleted_count = cursor.rowcount
         
@@ -3292,36 +3284,13 @@ class SupremeAirdropOrchestrator:
         except Exception as e:
             logger.error(f"💥 Supreme system initialization failed: {e}")
             return False
-
-    async def initialize_headless_system(self) -> bool:
-        """Initialize the system for non-interactive (headless) operation"""
-        logger.banner("HEADLESS INITIALIZATION", f"Version {CONFIG.VERSION} - Non-Interactive Mode")
-        start_time = time.time()
-        try:
-            self.database.cleanup_old_entries(90)
-            await self._warmup_ml_engine()
-            await self._verify_network_systems()
-            await self._setup_notifications()
-            initialization_time = time.time() - start_time
-            logger.success(f"✅ Headless system initialized in {initialization_time:.2f}s")
-            self.is_initialized = True
-            return True
-        except Exception as e:
-            logger.error(f"💥 Headless system initialization failed: {e}")
-            return False
     
     async def _initialize_vault(self):
         """Initialize security vault"""
         vault_data = self.vault.load_vault()
         
         if not vault_data:
-            logger.info("🔐 No quantum vault detected.")
-            if not sys.stdout.isatty():
-                logger.warning("⚠️ Non-interactive session: Skipping vault setup.")
-                logger.info("🔧 Continuing without vault - notifications will be disabled.")
-                return
-
-            logger.info("Setting up new vault...")
+            logger.info("🔐 No quantum vault detected. Setting up new vault...")
             if not self.vault.interactive_setup():
                 logger.warning("⚠️ Continuing without vault - limited functionality")
                 return

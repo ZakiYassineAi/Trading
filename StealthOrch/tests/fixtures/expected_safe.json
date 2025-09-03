@@ -1,0 +1,14 @@
+{
+  "to": "0xRecipient1234567890abcdef",
+  "value": "1000000000000000000",
+  "data": "0x",
+  "operation": 0,
+  "safeTxGas": 0,
+  "baseGas": 0,
+  "gasPrice": "0",
+  "gasToken": "0x0000000000000000000000000000000000000000",
+  "refundReceiver": "0x0000000000000000000000000000000000000000",
+  "nonce": 0,
+  "contractTransactionHash": "0xaabbccddeeff11223344556677889900aabbccddeeff11223344556677889900",
+  "sender": "0xOwnerABC1234567890abcdef"
+}

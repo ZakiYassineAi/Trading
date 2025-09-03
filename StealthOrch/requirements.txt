@@ -1,0 +1,29 @@
+# Core Web Framework
+fastapi
+uvicorn
+
+# Web3 / Blockchain
+web3
+
+# Database
+sqlalchemy
+alembic
+
+# Configuration
+python-dotenv
+
+# HTTP Client
+aiohttp
+
+# WalletConnect
+pyWalletConnect
+
+# QR Code Generation
+qrcode
+pillow
+
+# Testing
+pytest
+
+# Templating
+Jinja2

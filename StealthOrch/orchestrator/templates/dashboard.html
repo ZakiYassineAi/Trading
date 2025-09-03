@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StealthOrch Dashboard</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f8f9fa; color: #333; }
+        h1, h2 { color: #0056b3; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+        th, td { border: 1px solid #dee2e6; padding: 0.75em; text-align: left; }
+        th { background-color: #e9ecef; }
+        .btn { padding: 0.5em 1em; border: none; border-radius: 0.25em; color: white; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn-safe { background-color: #28a745; }
+        .btn-relayer { background-color: #17a2b8; }
+        .status-prepared { color: #ffc107; font-weight: bold; }
+        .status-submitted { color: #28a745; font-weight: bold; }
+        .json-payload { background-color: #eee; padding: 10px; border-radius: 5px; white-space: pre-wrap; word-break: break-all; max-height: 100px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>StealthOrch Dashboard</h1>
+
+    <h2>Pending Claims</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Project</th>
+                <th>Opportunity ID</th>
+                <th>Mode</th>
+                <th>Status</th>
+                <th>Payload Hash</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tx in prepared_txs %}
+            <tr>
+                <td>{{ tx.id }}</td>
+                <td>{{ tx.opportunity.project if tx.opportunity else 'N/A' }}</td>
+                <td>{{ tx.opportunity_id }}</td>
+                <td>{{ tx.mode }}</td>
+                <td><span class="status-prepared">{{ tx.status }}</span></td>
+                <td><pre>{{ tx.payload_hash[:16] }}...</pre></td>
+                <td>
+                    {% if tx.mode == 'safe' and tx.status == 'PREPARED' %}
+                        <form action="/submit_safe/{{ tx.id }}" method="post" style="display:inline;">
+                            <button type="submit" class="btn btn-safe">Submit to Safe</button>
+                        </form>
+                    {% elif tx.mode == 'relayer' and tx.status == 'PREPARED' %}
+                        <form onsubmit="submitRelayer(event, {{ tx.id }})">
+                            <input type="text" id="signature-{{ tx.id }}" placeholder="Paste signature (0x...)" size="30" required>
+                            <button type="submit" class="btn btn-relayer">Submit to Relayer</button>
+                        </form>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="6">
+                    <details>
+                        <summary>View Payload</summary>
+                        <pre class="json-payload">{{ tx.payload | tojson(indent=2) }}</pre>
+                    </details>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        async function submitRelayer(event, preparedId) {
+            event.preventDefault();
+            const signature = document.getElementById(`signature-${preparedId}`).value;
+            if (!signature) {
+                alert('Please provide a signature.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/relayer/submit_permit/${preparedId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ signature: signature }),
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`Successfully submitted to relayer! Tx Hash: ${result.relayer_tx_hash}`);
+                    window.location.reload();
+                } else {
+                    alert(`Error: ${result.detail}`);
+                }
+            } catch (error) {
+                alert(`An error occurred: ${error}`);
+            }
+        }
+    </script>
+</body>
+</html>
