@@ -8,7 +8,11 @@
   },
   "target": {
     "wallet_address": "0x958BD67f2f6be2Dc46D0e9e0Dd6d33F52EfCA67C",
-    "networks": ["Ethereum", "Polygon", "BSC", "Arbitrum", "Optimism", "Solana", "Cardano"]
+    "networks": ["BSC"],
+    "primary_network": "BSC",
+    "token_type": "USDT BEP20",
+    "auto_submit": true,
+    "auto_participate": true
   },
   "security": {
     "encryption_iterations": 500000,
