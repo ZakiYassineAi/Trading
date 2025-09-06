@@ -13,20 +13,37 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Prepare
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Prepare environment
         run: |
-          chmod +x ./start.sh || true
+          chmod +x ./start.sh
           echo "TICKAT=$(date -u +%FT%TZ)" >> $GITHUB_ENV
-          if ! command -v jq >/dev/null; then sudo apt-get update && sudo apt-get install -y jq; fi || true
+          if ! command -v jq >/dev/null; then sudo apt-get update && sudo apt-get install -y jq; fi
+
       - name: Restore state
         id: state
         run: |
-          if [ -f .agent_state.json ]; then
-            echo "state=$(tr -d '\n' < .agent_state.json | sed 's/\"/\\\"/g')" >> $GITHUB_OUTPUT
-          else
-            echo '{"last_run":null,"failures":0}' > .agent_state.json
-            echo "state={\"last_run\":null,\"failures\":0}" >> $GITHUB_OUTPUT
+          if [ ! -f .agent_state.json ]; then
+            echo '{"last_run": null, "failures": 0}' > .agent_state.json
           fi
+          echo "state=$(cat .agent_state.json | tr -d '\n' | sed 's/\"/\\\"/g')" >> $GITHUB_OUTPUT
+
       - name: Run agent tick
         id: tick
         env:
@@ -35,28 +52,32 @@ jobs:
         run: |
           set -e
           ./start.sh
+
       - name: Update state on success
         if: success()
         run: |
-          jq --arg now "$(date -u +%FT%TZ)" '.last_run=$now | .failures=0' .agent_state.json > .agent_state.json.new || echo '{"last_run":null,"failures":0}' > .agent_state.json.new
+          jq --arg now "$(date -u +%FT%TZ)" '.last_run=$now | .failures=0' .agent_state.json > .agent_state.json.new
           mv .agent_state.json.new .agent_state.json
+
       - name: Update state on failure
         if: failure()
         run: |
-          if [ -f .agent_state.json ]; then
-            jq '.failures=(.failures//0)+1' .agent_state.json > .agent_state.json.new || echo '{"last_run":null,"failures":1}' > .agent_state.json.new
-            mv .agent_state.json.new .agent_state.json
-          else
-            echo '{"last_run":null,"failures":1}' > .agent_state.json
-          fi
+          jq '.failures=(.failures//0)+1' .agent_state.json > .agent_state.json.new
+          mv .agent_state.json.new .agent_state.json
+
       - name: Commit state
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .agent_state.json || true
-          git commit -m "agent: update state at $TICKAT" || echo "No changes"
-          git push || echo "No push"
+          git add .agent_state.json
+          if ! git diff --staged --quiet; then
+            git commit -m "agent: update state at $TICKAT"
+            git push
+          else
+            echo "No state changes to commit."
+          fi
+
       - name: Escalate if repeated failures
         if: failure()
         env:
