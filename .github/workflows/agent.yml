@@ -1,0 +1,71 @@
+name: agent-tick
+on:
+  schedule:
+    - cron: "*/10    *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  issues: write
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Prepare
+        run: |
+          chmod +x ./start.sh || true
+          echo "TICKAT=$(date -u +%FT%TZ)" >> $GITHUB_ENV
+          if ! command -v jq >/dev/null; then sudo apt-get update && sudo apt-get install -y jq; fi || true
+      - name: Restore state
+        id: state
+        run: |
+          if [ -f .agent_state.json ]; then
+            echo "state=$(tr -d '\n' < .agent_state.json | sed 's/\"/\\\"/g')" >> $GITHUB_OUTPUT
+          else
+            echo '{"last_run":null,"failures":0}' > .agent_state.json
+            echo "state={\"last_run\":null,\"failures\":0}" >> $GITHUB_OUTPUT
+          fi
+      - name: Run agent tick
+        id: tick
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AGENTSTATEJSON: "${{ steps.state.outputs.state }}"
+        run: |
+          set -e
+          ./start.sh
+      - name: Update state on success
+        if: success()
+        run: |
+          jq --arg now "$(date -u +%FT%TZ)" '.last_run=$now | .failures=0' .agent_state.json > .agent_state.json.new || echo '{"last_run":null,"failures":0}' > .agent_state.json.new
+          mv .agent_state.json.new .agent_state.json
+      - name: Update state on failure
+        if: failure()
+        run: |
+          if [ -f .agent_state.json ]; then
+            jq '.failures=(.failures//0)+1' .agent_state.json > .agent_state.json.new || echo '{"last_run":null,"failures":1}' > .agent_state.json.new
+            mv .agent_state.json.new .agent_state.json
+          else
+            echo '{"last_run":null,"failures":1}' > .agent_state.json
+          fi
+      - name: Commit state
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .agent_state.json || true
+          git commit -m "agent: update state at $TICKAT" || echo "No changes"
+          git push || echo "No push"
+      - name: Escalate if repeated failures
+        if: failure()
+        env:
+          GHTOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FAILS=$(jq -r '.failures' .agent_state.json 2>/dev/null || echo 0)
+          if [ "$FAILS" -ge 3 ]; then
+            TITLE="Agent failing ($FAILS) - $(date -u +%FT%TZ)"
+            BODY="Agent failed $FAILS consecutive runs. Check Actions logs. Auto-pausing until review."
+            echo "::notice::$TITLE"
+            gh issue create --title "$TITLE" --body "$BODY" || true
+          fi

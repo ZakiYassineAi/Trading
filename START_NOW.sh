@@ -30,4 +30,4 @@ echo "="
 echo ""
 
 # Run the perpetual runner
-python3 quantum_perpetual_runner.py
+python3 -u quantum_perpetual_runner.py
