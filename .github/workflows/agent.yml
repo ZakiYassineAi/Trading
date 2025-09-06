@@ -1,92 +1,54 @@
-name: agent-tick
+name: Agent
+
 on:
+  workflow_dispatch:        # تشغيل يدوي
   schedule:
-    - cron: "*/10    *"
-  workflow_dispatch:
+    - cron: '*/10 * * * *'  # كل 10 دقائق (UTC)
+
 permissions:
-  contents: write
-  issues: write
+  contents: read
+
+concurrency:
+  group: agent-loop         # يمنع التداخل
+  cancel-in-progress: false
+
 jobs:
-  run-agent:
+  run:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12     # لا تتركه يعلق للأبد
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Prepare environment
+      - name: Install deps (tolerant)
         run: |
-          chmod +x ./start.sh
-          echo "TICKAT=$(date -u +%FT%TZ)" >> $GITHUB_ENV
-          if ! command -v jq >/dev/null; then sudo apt-get update && sudo apt-get install -y jq; fi
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || true
 
-      - name: Restore state
-        id: state
+      - name: Run bot and capture logs
+        shell: bash
         run: |
-          if [ ! -f .agent_state.json ]; then
-            echo '{"last_run": null, "failures": 0}' > .agent_state.json
-          fi
-          echo "state=$(cat .agent_state.json | tr -d '\n' | sed 's/\"/\\\"/g')" >> $GITHUB_OUTPUT
+          set -euxo pipefail
+          mkdir -p artifacts
+          python advanced_airdrop_automation.py 2>&1 | tee artifacts/run.log
 
-      - name: Run agent tick
-        id: tick
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AGENTSTATEJSON: "${{ steps.state.outputs.state }}"
-        run: |
-          set -e
-          ./start.sh
-
-      - name: Update state on success
-        if: success()
-        run: |
-          jq --arg now "$(date -u +%FT%TZ)" '.last_run=$now | .failures=0' .agent_state.json > .agent_state.json.new
-          mv .agent_state.json.new .agent_state.json
-
-      - name: Update state on failure
-        if: failure()
-        run: |
-          jq '.failures=(.failures//0)+1' .agent_state.json > .agent_state.json.new
-          mv .agent_state.json.new .agent_state.json
-
-      - name: Commit state
+      - name: Job summary
         if: always()
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .agent_state.json
-          if ! git diff --staged --quiet; then
-            git commit -m "agent: update state at $TICKAT"
-            git push
-          else
-            echo "No state changes to commit."
-          fi
+          echo "### Agent run: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Event: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Logs: artifact **agent-logs-${{ github.run_id }}**" >> $GITHUB_STEP_SUMMARY
 
-      - name: Escalate if repeated failures
-        if: failure()
-        env:
-          GHTOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          FAILS=$(jq -r '.failures' .agent_state.json 2>/dev/null || echo 0)
-          if [ "$FAILS" -ge 3 ]; then
-            TITLE="Agent failing ($FAILS) - $(date -u +%FT%TZ)"
-            BODY="Agent failed $FAILS consecutive runs. Check Actions logs. Auto-pausing until review."
-            echo "::notice::$TITLE"
-            gh issue create --title "$TITLE" --body "$BODY" || true
-          fi
+      - name: Upload logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-logs-${{ github.run_id }}
+          path: artifacts/**
+          retention-days: 7
