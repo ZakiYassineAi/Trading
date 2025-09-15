@@ -1,0 +1,176 @@
+{
+  "timestamp": "2025-09-15T23:27:33.008599",
+  "wallet": "0x958BD67f2f6be2Dc46D0e9e0Dd6d33F52EfCA67C",
+  "opportunities": [
+    {
+      "name": "BSC Testnet Faucet",
+      "url": "https://testnet.binance.org/faucet-smart",
+      "network": "BSC Testnet",
+      "amount": "0.1 BNB testnet",
+      "frequency": "daily",
+      "instant": true
+    },
+    {
+      "name": "Polygon Mumbai Faucet",
+      "url": "https://faucet.polygon.technology/",
+      "network": "Polygon Mumbai",
+      "amount": "0.2 MATIC testnet",
+      "frequency": "daily",
+      "instant": true
+    },
+    {
+      "name": "Arbitrum Goerli Faucet",
+      "url": "https://faucet.arbitrum.io/",
+      "network": "Arbitrum Goerli",
+      "amount": "0.001 ETH testnet",
+      "frequency": "daily",
+      "instant": true
+    },
+    {
+      "name": "FaucetPay Multi-Faucet",
+      "url": "https://faucetpay.io/",
+      "network": "Multiple",
+      "amount": "Varies",
+      "frequency": "hourly",
+      "instant": true
+    },
+    {
+      "name": "FreeBitco.in",
+      "url": "https://freebitco.in/",
+      "network": "Bitcoin",
+      "amount": "Up to $200",
+      "frequency": "hourly",
+      "instant": false
+    },
+    {
+      "name": "Layer3 XYZ Quests",
+      "url": "https://layer3.xyz/quests",
+      "type": "Tasks",
+      "reward": "XP convertible to tokens",
+      "deadline": "Ongoing"
+    },
+    {
+      "name": "Galxe Campaigns",
+      "url": "https://galxe.com/",
+      "type": "Social tasks",
+      "reward": "NFTs and tokens",
+      "deadline": "Various"
+    },
+    {
+      "name": "Zealy Sprints",
+      "url": "https://zealy.io/",
+      "type": "Community tasks",
+      "reward": "Points and tokens",
+      "deadline": "Weekly"
+    },
+    {
+      "name": "QuestN",
+      "url": "https://questn.com/",
+      "type": "Web3 quests",
+      "reward": "Tokens",
+      "deadline": "Ongoing"
+    },
+    {
+      "platform": "Gitcoin",
+      "url": "https://gitcoin.co/bounties",
+      "type": "Development",
+      "min_reward": "$5",
+      "max_reward": "$500"
+    },
+    {
+      "platform": "Immunefi",
+      "url": "https://immunefi.com/",
+      "type": "Bug bounties",
+      "min_reward": "$100",
+      "max_reward": "$1M+"
+    },
+    {
+      "platform": "HackerOne",
+      "url": "https://hackerone.com/",
+      "type": "Security",
+      "min_reward": "$50",
+      "max_reward": "$100k+"
+    },
+    {
+      "name": "zkSync Era Testnet",
+      "potential": "High",
+      "tasks": "Bridge, swap, provide liquidity",
+      "url": "https://era.zksync.io/"
+    },
+    {
+      "name": "Starknet Testnet",
+      "potential": "High",
+      "tasks": "Deploy contracts, use dApps",
+      "url": "https://starknet.io/"
+    },
+    {
+      "name": "Scroll Testnet",
+      "potential": "Medium",
+      "tasks": "Bridge and interact",
+      "url": "https://scroll.io/"
+    },
+    {
+      "protocol": "PancakeSwap",
+      "opportunity": "Liquidity provision",
+      "apr": "5-50%",
+      "network": "BSC",
+      "minimum": "$10"
+    },
+    {
+      "protocol": "Venus",
+      "opportunity": "Lending",
+      "apr": "2-15%",
+      "network": "BSC",
+      "minimum": "$1"
+    },
+    {
+      "protocol": "Alpaca Finance",
+      "opportunity": "Yield farming",
+      "apr": "10-100%",
+      "network": "BSC",
+      "minimum": "$10"
+    }
+  ],
+  "action_plan": {
+    "immediate_actions": [
+      {
+        "action": "Claim from BSC Testnet Faucet",
+        "url": "https://testnet.binance.org/faucet-smart",
+        "estimated_time": "2 minutes",
+        "potential": "$0.01-0.10"
+      },
+      {
+        "action": "Claim from Polygon Mumbai Faucet",
+        "url": "https://faucet.polygon.technology/",
+        "estimated_time": "2 minutes",
+        "potential": "$0.01-0.10"
+      },
+      {
+        "action": "Claim from Arbitrum Goerli Faucet",
+        "url": "https://faucet.arbitrum.io/",
+        "estimated_time": "2 minutes",
+        "potential": "$0.01-0.10"
+      },
+      {
+        "action": "Claim from FaucetPay Multi-Faucet",
+        "url": "https://faucetpay.io/",
+        "estimated_time": "2 minutes",
+        "potential": "$0.01-0.10"
+      },
+      {
+        "action": "Complete Layer3 XYZ Quests",
+        "url": "https://layer3.xyz/quests",
+        "estimated_time": "10 minutes",
+        "potential": "$0.10-1.00"
+      },
+      {
+        "action": "Complete QuestN",
+        "url": "https://questn.com/",
+        "estimated_time": "10 minutes",
+        "potential": "$0.10-1.00"
+      }
+    ],
+    "estimated_earnings": 0.8,
+    "time_required": 28
+  }
+}
