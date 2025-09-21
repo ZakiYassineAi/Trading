@@ -1,0 +1,38 @@
+{
+  "deployment_id": "2025-09-21T14:21:31.846256",
+  "wallet_address": "0x958BD67f2f6be2Dc46D0e9e0Dd6d33F52EfCA67C",
+  "projects_deployed": [
+    {
+      "name": "MasterCryptoFarmBot",
+      "type": "telegram_farming",
+      "estimated_daily": "$5-15",
+      "source": "masterking32/MasterCryptoFarmBot"
+    },
+    {
+      "name": "NodePayBot",
+      "type": "proxy_farming",
+      "estimated_daily": "$2-8",
+      "source": "im-hanzou/nodepay-automate"
+    },
+    {
+      "name": "GrassBot",
+      "type": "bandwidth_farming",
+      "estimated_daily": "$3-10",
+      "source": "im-hanzou/getgrass"
+    },
+    {
+      "name": "HamsterKombatBot",
+      "type": "telegram_gaming",
+      "estimated_daily": "$1-5",
+      "source": "masterking32/MasterHamsterKombatBot"
+    },
+    {
+      "name": "AirdropBot2024",
+      "type": "multi_chain_sniper",
+      "estimated_daily": "$10-50",
+      "source": "negativford804/AirdropsBot2024"
+    }
+  ],
+  "estimated_daily_earnings": 54.5,
+  "deployment_status": "active"
+}

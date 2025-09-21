@@ -1,0 +1,86 @@
+{
+  "timestamp": "2025-09-21T14:24:02.784967",
+  "wallet": "0x958BD67f2f6be2Dc46D0e9e0Dd6d33F52EfCA67C",
+  "active_methods": 12,
+  "projections": {
+    "hour_1": "$0.50-2.00",
+    "day_1": "$15-45",
+    "week_1": "$105-315",
+    "month_1": "$450-1350"
+  },
+  "methods": [
+    {
+      "name": "BNB Chain Faucet",
+      "url": "https://testnet.bnbchain.org/faucet-smart",
+      "frequency": "daily",
+      "amount": "0.5 BNB testnet"
+    },
+    {
+      "name": "Polygon Faucet",
+      "url": "https://faucet.polygon.technology/",
+      "frequency": "daily",
+      "amount": "0.5 MATIC"
+    },
+    {
+      "name": "Arbitrum Faucet",
+      "url": "https://faucet.triangleplatform.com/arbitrum/goerli",
+      "frequency": "daily",
+      "amount": "0.001 ETH"
+    },
+    {
+      "name": "Layer3 Quests",
+      "platform": "layer3.xyz",
+      "type": "Task completion",
+      "estimated": "$5-20/quest"
+    },
+    {
+      "name": "Galxe Campaigns",
+      "platform": "galxe.com",
+      "type": "Social tasks",
+      "estimated": "$2-10/campaign"
+    },
+    {
+      "name": "QuestN Tasks",
+      "platform": "questn.com",
+      "type": "Multi-chain quests",
+      "estimated": "$3-15/quest"
+    },
+    {
+      "name": "zkSync Era Testnet",
+      "reward": "Potential airdrop",
+      "tasks": "Bridge, swap, mint",
+      "estimated": "$100-1000 potential"
+    },
+    {
+      "name": "Starknet Testnet",
+      "reward": "STRK tokens potential",
+      "tasks": "Deploy contracts",
+      "estimated": "$50-500 potential"
+    },
+    {
+      "name": "Base Testnet",
+      "reward": "Future rewards",
+      "tasks": "Bridge and interact",
+      "estimated": "$20-200 potential"
+    },
+    {
+      "name": "Venus Protocol",
+      "type": "Lending rewards",
+      "apy": "2-8% APY",
+      "chain": "BSC"
+    },
+    {
+      "name": "PancakeSwap",
+      "type": "Liquidity provision",
+      "apy": "5-15% APY",
+      "chain": "BSC"
+    },
+    {
+      "name": "Alpaca Finance",
+      "type": "Yield farming",
+      "apy": "10-30% APY",
+      "chain": "BSC"
+    }
+  ],
+  "status": "ACTIVE"
+}

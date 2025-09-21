@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/home/user/webapp/instant_profits/telegram_farmer/main.py", line 17, in <module>
+    from mcf_utils.modules import Module
+  File "/home/user/webapp/instant_profits/telegram_farmer/mcf_utils/modules.py", line 12, in <module>
+    import config
+ModuleNotFoundError: No module named 'config'
